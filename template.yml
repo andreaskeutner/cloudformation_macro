@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion:     2010-09-09
+Description:                  |
+  Custom Ressource for reading X-Account SSM parameters
+Parameters:
+  IamRoleArn:
+    Description:              Arn of assumerole
+    Type:                     String
+    Default:                  arn:aws:iam::111111111111:role/akwe_ssm
+
+  SsmParameter:
+    Description:              SSM Parameter in the xAccount
+    Type:                     String
+    Default:                  aketest
+
+Resources:
+
+  MyEC2Instance:
+    Type:                     AWS::EC2::Instance
+    Properties:
+      ImageId:                "ami-08c148bb835696b45"
+      InstanceType:
+        Fn::Transform:
+          - Name:             XCrossAccountParameter
+            Parameters:
+                IamRoleArn:   !Ref IamRoleArn
+                SsmParameter: !Ref SsmParameter
+                OutputKey:    "InstanceType"

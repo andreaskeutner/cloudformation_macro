@@ -1,0 +1,112 @@
+
+AWSTemplateFormatVersion:                    2010-09-09
+Description:                                 "CloudFormation Macro for resolving SSM parameter of templates"
+Parameters:
+  IamRoleArn:
+    Description:                             Arn of assumerole
+    Type:                                    String
+    Default:                                 arn:aws:iam::11111111111:role/akwe_ssm
+Resources:
+  TransformExecutionRole:
+    Type:                                    AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version:                             2012-10-17
+        Statement:
+          - Effect:                          Allow
+            Principal:
+              Service:                       [lambda.amazonaws.com]
+            Action:                          ['sts:AssumeRole']
+      Path:                                  /
+      Policies:
+        - PolicyName:                        root
+          PolicyDocument:
+            Version:                         2012-10-17
+            Statement:
+              - Effect:                      Allow
+                Action:                      ['logs:*']
+                Resource:                    'arn:aws:logs:*:*:*'
+
+  LambdaPolicy:
+    Type:                                    AWS::IAM::Policy
+    Properties:
+      PolicyName:                            XAccountLambdaRole
+      PolicyDocument:
+        Version:                             "2012-10-17"
+        Statement:
+          - Effect:                          Allow
+            Action:
+              - "sts:AssumeRole"
+            Resource:
+              - !Ref IamRoleArn
+      Roles:
+        - !Ref TransformExecutionRole
+
+  TransformFunction:
+    Type:                                    AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile:                             |
+            import traceback
+            import boto3
+            import logging
+            from os import getenv
+
+            logging.basicConfig(level=getenv("LOG_LEVEL", "INFO"))
+            logger = logging.getLogger()
+            logger.setLevel(logging.INFO)
+
+            def handler(event, context):
+                logger.info('Event:          %s',event )
+                macro_response = {
+                    "requestId":             event["requestId"],
+                    "status":                "success"
+                }
+                IamRoleArn = event['params']['IamRoleArn']
+                SsmParameter = event['params']['SsmParameter']
+
+                logger.info('SSMParameter:   %s',SsmParameter )
+                logger.info('IamRoleArn:     %s',IamRoleArn )
+
+                sts = boto3.client('sts')
+
+                assumedRole = sts.assume_role(
+                  RoleArn=IamRoleArn,
+                  RoleSessionName='SSMParameterGet',
+                )
+
+                credentials = assumedRole['Credentials']
+                accessKey = credentials['AccessKeyId']
+                secretAccessKey = credentials['SecretAccessKey']
+                sessionToken = credentials['SessionToken']
+
+                ssm = boto3.client('ssm',
+                          aws_access_key_id=accessKey,
+                          aws_secret_access_key=secretAccessKey,
+                          aws_session_token=sessionToken)
+
+                response = ssm.get_parameter(
+                    Name=SsmParameter
+                )
+                logger.info('Response:       %s',response )
+
+                macro_response['fragment'] = response["Parameter"]["Value"]
+                logger.info('macro_response: %s',macro_response )
+                return macro_response
+      Handler:                               index.handler
+      Runtime:                               python3.7
+      Role:                                  !GetAtt TransformExecutionRole.Arn
+
+  TransformFunctionPermissions:
+    Type:                                    AWS::Lambda::Permission
+    Properties:
+      Action:                                'lambda:InvokeFunction'
+      FunctionName:                          !GetAtt TransformFunction.Arn
+      Principal:                             'cloudformation.amazonaws.com'
+
+  Transform:
+    Type:                                    AWS::CloudFormation::Macro
+    Properties:
+      Name:                                  'XCrossAccountParameter'
+      Description:                           Get X Account SSM Parameters
+      FunctionName:                          !GetAtt TransformFunction.Arn
