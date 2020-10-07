@@ -24,3 +24,7 @@ Resources:
             Parameters:
                 IamRoleArn:   !Ref IamRoleArn
                 SsmParameter: !Ref SsmParameter
+<<<<<<< HEAD
+=======
+
+>>>>>>> 042f96cea970d9feca2558a2a30fb466c29a8f0c

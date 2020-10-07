@@ -5,7 +5,7 @@ Parameters:
   IamRoleArn:
     Description:                             Arn of assumerole
     Type:                                    String
-    Default:                                 arn:aws:iam::11111111111:role/akwe_ssm
+    Default:                                 arn:aws:iam::818158589449:role/akwe_ssm
 Resources:
   TransformExecutionRole:
     Type:                                    AWS::IAM::Role
