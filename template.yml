@@ -24,4 +24,3 @@ Resources:
             Parameters:
                 IamRoleArn:   !Ref IamRoleArn
                 SsmParameter: !Ref SsmParameter
-                OutputKey:    "InstanceType"
